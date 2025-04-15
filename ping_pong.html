@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberPong - Futuristic Pong Experience</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0a0a1a;
+            overflow: hidden;
+            color: #00fffc;
+        }
+        
+        .cyber-border {
+            border: 2px solid #00fffc;
+            box-shadow: 0 0 10px #00fffc, 0 0 20px #00fffc inset;
+        }
+        
+        .cyber-glow {
+            text-shadow: 0 0 5px #00fffc, 0 0 10px #00fffc;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .trail {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(0, 255, 252, 0.5);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+        
+        .explosion {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,255,252,0.8) 0%, rgba(0,255,252,0) 70%);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            animation: explode 0.5s forwards;
+        }
+        
+        @keyframes explode {
+            0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+        }
+        
+        #gameCanvas {
+            background-color: #000033;
+            box-shadow: 0 0 30px #00fffc;
+        }
+        
+        .cyber-button {
+            background: linear-gradient(145deg, #001a1a, #003333);
+            border: 1px solid #00fffc;
+            color: #00fffc;
+            transition: all 0.3s;
+        }
+        
+        .cyber-button:hover {
+            background: linear-gradient(145deg, #003333, #001a1a);
+            box-shadow: 0 0 10px #00fffc;
+            transform: translateY(-2px);
+        }
+        
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 255, 252, 0.05) 0%,
+                rgba(0, 255, 252, 0) 10%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            animation: scanline 8s linear infinite;
+        }
+        
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center relative">
+    <div class="scanline"></div>
+    
+    <div class="absolute top-4 left-4">
+        <div class="cyber-border p-4 rounded-lg bg-black bg-opacity-70">
+            <h2 class="text-xl cyber-glow mb-2">CYBERPONG v2.4.7</h2>
+            <p class="text-sm">System: ONLINE</p>
+            <p class="text-sm">Energy: <span id="energy-level">100%</span></p>
+        </div>
+    </div>
+    
+    <div class="absolute top-4 right-4">
+        <div class="cyber-border p-4 rounded-lg bg-black bg-opacity-70">
+            <h2 class="text-xl cyber-glow mb-2">CONTROLS</h2>
+            <p class="text-sm">Player 1: W/S</p>
+            <p class="text-sm">Player 2: ↑/↓</p>
+            <p class="text-sm">Pause: SPACE</p>
+        </div>
+    </div>
+    
+    <h1 class="text-5xl font-bold mb-8 cyber-glow">CYBER<span class="text-purple-400">PONG</span></h1>
+    
+    <div class="relative">
+        <canvas id="gameCanvas" width="800" height="500" class="cyber-border rounded-lg"></canvas>
+        
+        <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-80">
+            <h2 class="text-3xl cyber-glow mb-6">SYSTEM READY</h2>
+            <button id="startButton" class="cyber-button px-6 py-3 rounded-lg text-xl mb-4">
+                INITIATE GAME
+            </button>
+            <div class="flex space-x-4">
+                <button id="singlePlayerBtn" class="cyber-button px-4 py-2 rounded-lg">
+                    SINGLE PLAYER
+                </button>
+                <button id="multiPlayerBtn" class="cyber-button px-4 py-2 rounded-lg">
+                    MULTI PLAYER
+                </button>
+            </div>
+        </div>
+        
+        <div id="pauseScreen" class="absolute inset-0 hidden flex-col items-center justify-center bg-black bg-opacity-80">
+            <h2 class="text-3xl cyber-glow mb-6 pulse">SYSTEM PAUSED</h2>
+            <button id="resumeButton" class="cyber-button px-6 py-3 rounded-lg text-xl">
+                RESUME GAME
+            </button>
+        </div>
+        
+        <div id="gameOverScreen" class="absolute inset-0 hidden flex-col items-center justify-center bg-black bg-opacity-80">
+            <h2 class="text-3xl cyber-glow mb-6">GAME OVER</h2>
+            <p id="winnerText" class="text-2xl mb-6"></p>
+            <button id="restartButton" class="cyber-button px-6 py-3 rounded-lg text-xl">
+                RESTART SYSTEM
+            </button>
+        </div>
+    </div>
+    
+    <div class="mt-6 cyber-border p-4 rounded-lg bg-black bg-opacity-70 w-3/4 max-w-2xl">
+        <h2 class="text-xl cyber-glow mb-2">GAME DATA</h2>
+        <div class="flex justify-between">
+            <div>
+                <p>PLAYER 1: <span id="player1Score" class="text-2xl">0</span></p>
+                <div class="h-2 w-full bg-gray-800 mt-1">
+                    <div id="p1Energy" class="h-full bg-blue-500" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div>
+                <p>PLAYER 2: <span id="player2Score" class="text-2xl">0</span></p>
+                <div class="h-2 w-full bg-gray-800 mt-1">
+                    <div id="p2Energy" class="h-full bg-purple-500" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4">
+            <p>BALL SPEED: <span id="ballSpeed">1.0x</span></p>
+            <p>GAME TIME: <span id="gameTime">00:00</span></p>
+        </div>
+    </div>
+    
+    <div class="absolute bottom-4 left-4 cyber-border p-4 rounded-lg bg-black bg-opacity-70">
+        <h2 class="text-xl cyber-glow mb-2">EFFECTS EXPLANATION</h2>
+        <ul class="text-sm list-disc pl-4">
+            <li>Energy trails follow the ball</li>
+            <li>Impact explosions on paddle hits</li>
+            <li>Scanlines create CRT monitor effect</li>
+            <li>Dynamic energy bars deplete with movement</li>
+            <li>Cyber-glow text and borders</li>
+        </ul>
+    </div>
+    
+    <script>
+        // Game variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const pauseScreen = document.getElementById('pauseScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const resumeButton = document.getElementById('resumeButton');
+        const restartButton = document.getElementById('restartButton');
+        const singlePlayerBtn = document.getElementById('singlePlayerBtn');
+        const multiPlayerBtn = document.getElementById('multiPlayerBtn');
+        const player1Score = document.getElementById('player1Score');
+        const player2Score = document.getElementById('player2Score');
+        const winnerText = document.getElementById('winnerText');
+        const p1Energy = document.getElementById('p1Energy');
+        const p2Energy = document.getElementById('p2Energy');
+        const ballSpeedDisplay = document.getElementById('ballSpeed');
+        const gameTimeDisplay = document.getElementById('gameTime');
+        const energyLevel = document.getElementById('energy-level');
+        
+        // Game state
+        let gameRunning = false;
+        let isPaused = false;
+        let gameOver = false;
+        let singlePlayer = false;
+        let gameStartTime;
+        let gameTimer;
+        
+        // Game objects
+        const paddleWidth = 15;
+        const paddleHeight = 100;
+        const ballSize = 12;
+        
+        let leftPaddle = {
+            x: 30,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            speed: 8,
+            score: 0,
+            energy: 100,
+            upPressed: false,
+            downPressed: false
+        };
+        
+        let rightPaddle = {
+            x: canvas.width - 30 - paddleWidth,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            speed: 8,
+            score: 0,
+            energy: 100,
+            upPressed: false,
+            downPressed: false
+        };
+        
+        let ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: ballSize,
+            speedX: 5,
+            speedY: 5,
+            maxSpeed: 15,
+            trail: []
+        };
+        
+        // Visual effects
+        let explosions = [];
+        let energyParticles = [];
+        
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        resumeButton.addEventListener('click', resumeGame);
+        restartButton.addEventListener('click', restartGame);
+        singlePlayerBtn.addEventListener('click', () => {
+            singlePlayer = true;
+            startGame();
+        });
+        multiPlayerBtn.addEventListener('click', () => {
+            singlePlayer = false;
+            startGame();
+        });
+        
+        document.addEventListener('keydown', keyDownHandler);
+        document.addEventListener('keyup', keyUpHandler);
+        
+        // Key handlers
+        function keyDownHandler(e) {
+            switch(e.key) {
+                case 'w':
+                    leftPaddle.upPressed = true;
+                    break;
+                case 's':
+                    leftPaddle.downPressed = true;
+                    break;
+                case 'ArrowUp':
+                    rightPaddle.upPressed = true;
+                    break;
+                case 'ArrowDown':
+                    rightPaddle.downPressed = true;
+                    break;
+                case ' ':
+                    if (gameRunning) {
+                        togglePause();
+                    }
+                    break;
+            }
+        }
+        
+        function keyUpHandler(e) {
+            switch(e.key) {
+                case 'w':
+                    leftPaddle.upPressed = false;
+                    break;
+                case 's':
+                    leftPaddle.downPressed = false;
+                    break;
+                case 'ArrowUp':
+                    rightPaddle.upPressed = false;
+                    break;
+                case 'ArrowDown':
+                    rightPaddle.downPressed = false;
+                    break;
+            }
+        }
+        
+        // Game control functions
+        function startGame() {
+            gameRunning = true;
+            startScreen.style.display = 'none';
+            resetGame();
+            gameStartTime = Date.now();
+            updateGameTime();
+            gameTimer = setInterval(updateGameTime, 1000);
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function resetGame() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speedX = 5 * (Math.random() > 0.5 ? 1 : -1);
+            ball.speedY = 5 * (Math.random() > 0.5 ? 1 : -1);
+            ball.trail = [];
+            
+            leftPaddle.y = canvas.height / 2 - paddleHeight / 2;
+            rightPaddle.y = canvas.height / 2 - paddleHeight / 2;
+            
+            leftPaddle.energy = 100;
+            rightPaddle.energy = 100;
+            
+            updateEnergyBars();
+        }
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseScreen.style.display = 'flex';
+            } else {
+                pauseScreen.style.display = 'none';
+            }
+        }
+        
+        function resumeGame() {
+            isPaused = false;
+            pauseScreen.style.display = 'none';
+        }
+        
+        function endGame(winner) {
+            gameRunning = false;
+            gameOver = true;
+            clearInterval(gameTimer);
+            gameOverScreen.style.display = 'flex';
+            winnerText.textContent = winner === 1 ? 'PLAYER 1 VICTORY' : 'PLAYER 2 VICTORY';
+        }
+        
+        function restartGame() {
+            leftPaddle.score = 0;
+            rightPaddle.score = 0;
+            player1Score.textContent = '0';
+            player2Score.textContent = '0';
+            gameOver = false;
+            gameOverScreen.style.display = 'none';
+            resetGame();
+            gameRunning = true;
+            gameStartTime = Date.now();
+            gameTimer = setInterval(updateGameTime, 1000);
+        }
+        
+        // Game logic
+        function update() {
+            if (isPaused || gameOver) return;
+            
+            // Move paddles
+            if (leftPaddle.upPressed && leftPaddle.y > 0 && leftPaddle.energy > 0) {
+                leftPaddle.y -= leftPaddle.speed;
+                leftPaddle.energy -= 0.2;
+            }
+            if (leftPaddle.downPressed && leftPaddle.y < canvas.height - leftPaddle.height && leftPaddle.energy > 0) {
+                leftPaddle.y += leftPaddle.speed;
+                leftPaddle.energy -= 0.2;
+            }
+            
+            // AI for single player
+            if (singlePlayer) {
+                const paddleCenter = rightPaddle.y + rightPaddle.height / 2;
+                if (paddleCenter < ball.y - 20 && rightPaddle.y < canvas.height - rightPaddle.height) {
+                    rightPaddle.y += rightPaddle.speed * 0.7;
+                } else if (paddleCenter > ball.y + 20 && rightPaddle.y > 0) {
+                    rightPaddle.y -= rightPaddle.speed * 0.7;
+                }
+            } else {
+                // Player 2 controls
+                if (rightPaddle.upPressed && rightPaddle.y > 0 && rightPaddle.energy > 0) {
+                    rightPaddle.y -= rightPaddle.speed;
+                    rightPaddle.energy -= 0.2;
+                }
+                if (rightPaddle.downPressed && rightPaddle.y < canvas.height - rightPaddle.height && rightPaddle.energy > 0) {
+                    rightPaddle.y += rightPaddle.speed;
+                    rightPaddle.energy -= 0.2;
+                }
+            }
+            
+            // Regenerate energy when not moving
+            if (!leftPaddle.upPressed && !leftPaddle.downPressed && leftPaddle.energy < 100) {
+                leftPaddle.energy += 0.1;
+            }
+            if ((singlePlayer || (!rightPaddle.upPressed && !rightPaddle.downPressed)) && rightPaddle.energy < 100) {
+                rightPaddle.energy += 0.1;
+            }
+            
+            // Update ball position
+            ball.x += ball.speedX;
+            ball.y += ball.speedY;
+            
+            // Add to trail
+            ball.trail.push({x: ball.x, y: ball.y});
+            if (ball.trail.length > 10) {
+                ball.trail.shift();
+            }
+            
+            // Ball collision with top and bottom
+            if (ball.y - ball.size / 2 < 0 || ball.y + ball.size / 2 > canvas.height) {
+                ball.speedY = -ball.speedY;
+                createExplosion(ball.x, ball.y);
+            }
+            
+            // Ball collision with paddles
+            if (ball.x - ball.size / 2 < leftPaddle.x + leftPaddle.width &&
+                ball.x + ball.size / 2 > leftPaddle.x &&
+                ball.y > leftPaddle.y &&
+                ball.y < leftPaddle.y + leftPaddle.height) {
+                
+                // Calculate angle based on where ball hits paddle
+                const hitPosition = (ball.y - (leftPaddle.y + leftPaddle.height / 2)) / (leftPaddle.height / 2);
+                ball.speedX = Math.abs(ball.speedX) * 1.05;
+                ball.speedY = hitPosition * 7;
+                
+                createExplosion(leftPaddle.x + leftPaddle.width, ball.y);
+                addEnergyParticles(leftPaddle.x + leftPaddle.width, ball.y, 5, '#00fffc');
+                
+                // Limit max speed
+                if (Math.abs(ball.speedX) > ball.maxSpeed) {
+                    ball.speedX = ball.speedX > 0 ? ball.maxSpeed : -ball.maxSpeed;
+                }
+            }
+            
+            if (ball.x + ball.size / 2 > rightPaddle.x &&
+                ball.x - ball.size / 2 < rightPaddle.x + rightPaddle.width &&
+                ball.y > rightPaddle.y &&
+                ball.y < rightPaddle.y + rightPaddle.height) {
+                
+                const hitPosition = (ball.y - (rightPaddle.y + rightPaddle.height / 2)) / (rightPaddle.height / 2);
+                ball.speedX = -Math.abs(ball.speedX) * 1.05;
+                ball.speedY = hitPosition * 7;
+                
+                createExplosion(rightPaddle.x, ball.y);
+                addEnergyParticles(rightPaddle.x, ball.y, 5, '#ff00fc');
+                
+                if (Math.abs(ball.speedX) > ball.maxSpeed) {
+                    ball.speedX = ball.speedX > 0 ? ball.maxSpeed : -ball.maxSpeed;
+                }
+            }
+            
+            // Ball out of bounds
+            if (ball.x - ball.size / 2 < 0) {
+                rightPaddle.score++;
+                player2Score.textContent = rightPaddle.score;
+                if (rightPaddle.score >= 5) {
+                    endGame(2);
+                } else {
+                    resetGame();
+                }
+            }
+            
+            if (ball.x + ball.size / 2 > canvas.width) {
+                leftPaddle.score++;
+                player1Score.textContent = leftPaddle.score;
+                if (leftPaddle.score >= 5) {
+                    endGame(1);
+                } else {
+                    resetGame();
+                }
+            }
+            
+            // Update energy bars
+            updateEnergyBars();
+            
+            // Update ball speed display
+            const speedFactor = (Math.abs(ball.speedX) / 5).toFixed(1);
+            ballSpeedDisplay.textContent = `${speedFactor}x`;
+            
+            // Update explosions
+            explosions = explosions.filter(explosion => {
+                explosion.time++;
+                return explosion.time < 30;
+            });
+            
+            // Update energy particles
+            energyParticles = energyParticles.filter(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life--;
+                return particle.life > 0;
+            });
+        }
+        
+        function updateEnergyBars() {
+            p1Energy.style.width = `${leftPaddle.energy}%`;
+            p2Energy.style.width = `${rightPaddle.energy}%`;
+            
+            // Change color based on energy level
+            if (leftPaddle.energy < 30) {
+                p1Energy.classList.remove('bg-blue-500');
+                p1Energy.classList.add('bg-red-500');
+            } else {
+                p1Energy.classList.remove('bg-red-500');
+                p1Energy.classList.add('bg-blue-500');
+            }
+            
+            if (rightPaddle.energy < 30) {
+                p2Energy.classList.remove('bg-purple-500');
+                p2Energy.classList.add('bg-red-500');
+            } else {
+                p2Energy.classList.remove('bg-red-500');
+                p2Energy.classList.add('bg-purple-500');
+            }
+            
+            // Update system energy display
+            const systemEnergy = Math.floor((leftPaddle.energy + rightPaddle.energy) / 2);
+            energyLevel.textContent = `${systemEnergy}%`;
+            if (systemEnergy < 30) {
+                energyLevel.classList.add('text-red-500');
+                energyLevel.classList.remove('text-green-500');
+            } else {
+                energyLevel.classList.remove('text-red-500');
+                energyLevel.classList.add('text-green-500');
+            }
+        }
+        
+        function updateGameTime() {
+            if (!gameStartTime) return;
+            
+            const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            gameTimeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Visual effects
+        function createExplosion(x, y) {
+            explosions.push({
+                x: x,
+                y: y,
+                time: 0
+            });
+        }
+        
+        function addEnergyParticles(x, y, count, color) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                
+                energyParticles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 20 + Math.random() * 30,
+                    color: color,
+                    size: 2 + Math.random() * 3
+                });
+            }
+        }
+        
+        // Drawing functions
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#000033';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw center line
+            ctx.strokeStyle = '#00fffc';
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw ball trail
+            for (let i = 0; i < ball.trail.length; i++) {
+                const alpha = i / ball.trail.length;
+                ctx.beginPath();
+                ctx.arc(ball.trail[i].x, ball.trail[i].y, ball.size * alpha, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 255, 252, ${alpha * 0.5})`;
+                ctx.fill();
+            }
+            
+            // Draw paddles with glow effect
+            // Left paddle
+            ctx.fillStyle = '#00a2ff';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00a2ff';
+            ctx.fillRect(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height);
+            
+            // Right paddle
+            ctx.fillStyle = '#ff00fc';
+            ctx.shadowColor = '#ff00fc';
+            ctx.fillRect(rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height);
+            
+            ctx.shadowBlur = 0;
+            
+            // Draw ball with glow
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.size / 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffffff';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // Draw explosions
+            explosions.forEach(explosion => {
+                const size = explosion.time * 2;
+                const alpha = 1 - (explosion.time / 30);
+                ctx.beginPath();
+                ctx.arc(explosion.x, explosion.y, size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 255, 252, ${alpha})`;
+                ctx.fill();
+            });
+            
+            // Draw energy particles
+            energyParticles.forEach(particle => {
+                const alpha = particle.life / 50;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fillStyle = `${particle.color.replace(')', `, ${alpha})`)}`;
+                ctx.fill();
+            });
+            
+            // Draw energy depleted effect on paddles
+            if (leftPaddle.energy < 30) {
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(leftPaddle.x - 2, leftPaddle.y - 2, leftPaddle.width + 4, leftPaddle.height + 4);
+            }
+            
+            if (rightPaddle.energy < 30) {
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(rightPaddle.x - 2, rightPaddle.y - 2, rightPaddle.width + 4, rightPaddle.height + 4);
+            }
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            update();
+            draw();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initialize
+        function init() {
+            // Add some decorative elements
+            for (let i = 0; i < 20; i++) {
+                addEnergyParticles(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height,
+                    3,
+                    '#00fffc'
+                );
+            }
+        }
+        
+        init();
+    </script>
+</body>
+</html>

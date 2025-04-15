@@ -13,6 +13,7 @@
             background-color: #0a0a1a;
             overflow: hidden;
             color: #00fffc;
+            touch-action: manipulation;
         }
         
         .cyber-border {
@@ -98,10 +99,54 @@
             0% { transform: translateY(-100%); }
             100% { transform: translateY(100%); }
         }
+        
+        /* Mobile controls */
+        .touch-control {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            top: 0;
+            opacity: 0.2;
+            z-index: 100;
+        }
+        
+        #leftTouch {
+            left: 0;
+            background-color: #00a2ff;
+        }
+        
+        #rightTouch {
+            right: 0;
+            background-color: #ff00fc;
+        }
+        
+        .touch-indicator {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 101;
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .touch-control {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center relative">
     <div class="scanline"></div>
+    
+    <!-- Mobile touch controls -->
+    <div id="leftTouch" class="touch-control"></div>
+    <div id="rightTouch" class="touch-control"></div>
+    <div id="leftTouchIndicator" class="touch-indicator"></div>
+    <div id="rightTouchIndicator" class="touch-indicator"></div>
     
     <div class="absolute top-4 left-4">
         <div class="cyber-border p-4 rounded-lg bg-black bg-opacity-70">
@@ -114,8 +159,8 @@
     <div class="absolute top-4 right-4">
         <div class="cyber-border p-4 rounded-lg bg-black bg-opacity-70">
             <h2 class="text-xl cyber-glow mb-2">CONTROLS</h2>
-            <p class="text-sm">Player 1: W/S</p>
-            <p class="text-sm">Player 2: ↑/↓</p>
+            <p class="text-sm">Player 1: W/S or Left Touch</p>
+            <p class="text-sm">Player 2: ↑/↓ or Right Touch</p>
             <p class="text-sm">Pause: SPACE</p>
         </div>
     </div>
@@ -199,6 +244,12 @@
         const gameTimeDisplay = document.getElementById('gameTime');
         const energyLevel = document.getElementById('energy-level');
         
+        // Mobile touch controls
+        const leftTouch = document.getElementById('leftTouch');
+        const rightTouch = document.getElementById('rightTouch');
+        const leftTouchIndicator = document.getElementById('leftTouchIndicator');
+        const rightTouchIndicator = document.getElementById('rightTouchIndicator');
+        
         // Game state
         let gameRunning = false;
         let isPaused = false;
@@ -208,6 +259,12 @@
         let gameTimer;
         let speedIncreaseTimer;
         let baseSpeed = 3; // Başlangıç hızı
+        
+        // Touch state
+        let leftTouchActive = false;
+        let rightTouchActive = false;
+        let leftTouchY = 0;
+        let rightTouchY = 0;
         
         // Game objects
         const paddleWidth = 15;
@@ -267,6 +324,74 @@
         
         document.addEventListener('keydown', keyDownHandler);
         document.addEventListener('keyup', keyUpHandler);
+        
+        // Mobile touch events
+        leftTouch.addEventListener('touchstart', handleLeftTouchStart);
+        leftTouch.addEventListener('touchmove', handleLeftTouchMove);
+        leftTouch.addEventListener('touchend', handleLeftTouchEnd);
+        
+        rightTouch.addEventListener('touchstart', handleRightTouchStart);
+        rightTouch.addEventListener('touchmove', handleRightTouchMove);
+        rightTouch.addEventListener('touchend', handleRightTouchEnd);
+        
+        // Touch handlers
+        function handleLeftTouchStart(e) {
+            e.preventDefault();
+            leftTouchActive = true;
+            const touch = e.touches[0];
+            leftTouchY = touch.clientY;
+            updateLeftTouchIndicator(touch.clientX, touch.clientY);
+        }
+        
+        function handleLeftTouchMove(e) {
+            e.preventDefault();
+            if (leftTouchActive) {
+                const touch = e.touches[0];
+                leftTouchY = touch.clientY;
+                updateLeftTouchIndicator(touch.clientX, touch.clientY);
+            }
+        }
+        
+        function handleLeftTouchEnd(e) {
+            e.preventDefault();
+            leftTouchActive = false;
+            leftTouchIndicator.style.display = 'none';
+        }
+        
+        function handleRightTouchStart(e) {
+            e.preventDefault();
+            rightTouchActive = true;
+            const touch = e.touches[0];
+            rightTouchY = touch.clientY;
+            updateRightTouchIndicator(touch.clientX, touch.clientY);
+        }
+        
+        function handleRightTouchMove(e) {
+            e.preventDefault();
+            if (rightTouchActive) {
+                const touch = e.touches[0];
+                rightTouchY = touch.clientY;
+                updateRightTouchIndicator(touch.clientX, touch.clientY);
+            }
+        }
+        
+        function handleRightTouchEnd(e) {
+            e.preventDefault();
+            rightTouchActive = false;
+            rightTouchIndicator.style.display = 'none';
+        }
+        
+        function updateLeftTouchIndicator(x, y) {
+            leftTouchIndicator.style.left = x + 'px';
+            leftTouchIndicator.style.top = y + 'px';
+            leftTouchIndicator.style.display = 'block';
+        }
+        
+        function updateRightTouchIndicator(x, y) {
+            rightTouchIndicator.style.left = x + 'px';
+            rightTouchIndicator.style.top = y + 'px';
+            rightTouchIndicator.style.display = 'block';
+        }
         
         // Key handlers
         function keyDownHandler(e) {
@@ -398,18 +523,34 @@
         function update() {
             if (isPaused || gameOver) return;
             
-            // Move paddles
-            if (leftPaddle.upPressed && leftPaddle.y > 0 && leftPaddle.energy > 0) {
-                leftPaddle.y -= leftPaddle.speed;
-                leftPaddle.energy -= 0.2;
-            }
-            if (leftPaddle.downPressed && leftPaddle.y < canvas.height - leftPaddle.height && leftPaddle.energy > 0) {
-                leftPaddle.y += leftPaddle.speed;
-                leftPaddle.energy -= 0.2;
+            // Move paddles based on touch or keyboard
+            // Left paddle (Player 1)
+            if (leftTouchActive && leftPaddle.energy > 0) {
+                const touchY = leftTouchY - canvas.getBoundingClientRect().top;
+                const paddleCenter = leftPaddle.y + leftPaddle.height / 2;
+                
+                if (touchY < paddleCenter - 10) {
+                    leftPaddle.y -= leftPaddle.speed;
+                    leftPaddle.energy -= 0.2;
+                } else if (touchY > paddleCenter + 10) {
+                    leftPaddle.y += leftPaddle.speed;
+                    leftPaddle.energy -= 0.2;
+                }
+            } else {
+                // Keyboard controls for left paddle
+                if (leftPaddle.upPressed && leftPaddle.y > 0 && leftPaddle.energy > 0) {
+                    leftPaddle.y -= leftPaddle.speed;
+                    leftPaddle.energy -= 0.2;
+                }
+                if (leftPaddle.downPressed && leftPaddle.y < canvas.height - leftPaddle.height && leftPaddle.energy > 0) {
+                    leftPaddle.y += leftPaddle.speed;
+                    leftPaddle.energy -= 0.2;
+                }
             }
             
-            // AI for single player
+            // Right paddle (Player 2 or AI)
             if (singlePlayer) {
+                // AI for single player
                 const paddleCenter = rightPaddle.y + rightPaddle.height / 2;
                 if (paddleCenter < ball.y - 20 && rightPaddle.y < canvas.height - rightPaddle.height) {
                     rightPaddle.y += rightPaddle.speed * 0.7;
@@ -417,22 +558,36 @@
                     rightPaddle.y -= rightPaddle.speed * 0.7;
                 }
             } else {
-                // Player 2 controls
-                if (rightPaddle.upPressed && rightPaddle.y > 0 && rightPaddle.energy > 0) {
-                    rightPaddle.y -= rightPaddle.speed;
-                    rightPaddle.energy -= 0.2;
-                }
-                if (rightPaddle.downPressed && rightPaddle.y < canvas.height - rightPaddle.height && rightPaddle.energy > 0) {
-                    rightPaddle.y += rightPaddle.speed;
-                    rightPaddle.energy -= 0.2;
+                // Multiplayer controls for right paddle
+                if (rightTouchActive && rightPaddle.energy > 0) {
+                    const touchY = rightTouchY - canvas.getBoundingClientRect().top;
+                    const paddleCenter = rightPaddle.y + rightPaddle.height / 2;
+                    
+                    if (touchY < paddleCenter - 10) {
+                        rightPaddle.y -= rightPaddle.speed;
+                        rightPaddle.energy -= 0.2;
+                    } else if (touchY > paddleCenter + 10) {
+                        rightPaddle.y += rightPaddle.speed;
+                        rightPaddle.energy -= 0.2;
+                    }
+                } else {
+                    // Keyboard controls for right paddle
+                    if (rightPaddle.upPressed && rightPaddle.y > 0 && rightPaddle.energy > 0) {
+                        rightPaddle.y -= rightPaddle.speed;
+                        rightPaddle.energy -= 0.2;
+                    }
+                    if (rightPaddle.downPressed && rightPaddle.y < canvas.height - rightPaddle.height && rightPaddle.energy > 0) {
+                        rightPaddle.y += rightPaddle.speed;
+                        rightPaddle.energy -= 0.2;
+                    }
                 }
             }
             
             // Regenerate energy when not moving
-            if (!leftPaddle.upPressed && !leftPaddle.downPressed && leftPaddle.energy < 100) {
+            if (!leftPaddle.upPressed && !leftPaddle.downPressed && !leftTouchActive && leftPaddle.energy < 100) {
                 leftPaddle.energy += 0.1;
             }
-            if ((singlePlayer || (!rightPaddle.upPressed && !rightPaddle.downPressed)) && rightPaddle.energy < 100) {
+            if ((singlePlayer || (!rightPaddle.upPressed && !rightPaddle.downPressed && !rightTouchActive)) && rightPaddle.energy < 100) {
                 rightPaddle.energy += 0.1;
             }
             

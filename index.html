@@ -217,6 +217,8 @@
         let singlePlayer = false;
         let gameStartTime;
         let gameTimer;
+        let speedIncreaseTimer;
+        let baseSpeed = 3; // Başlangıç hızı
         
         // Game objects
         const paddleWidth = 15;
@@ -251,8 +253,8 @@
             x: canvas.width / 2,
             y: canvas.height / 2,
             size: ballSize,
-            speedX: 5,
-            speedY: 5,
+            speedX: baseSpeed,
+            speedY: baseSpeed,
             maxSpeed: 15,
             trail: []
         };
@@ -320,19 +322,42 @@
         // Game control functions
         function startGame() {
             gameRunning = true;
+            gameOver = false;
             startScreen.style.display = 'none';
             resetGame();
             gameStartTime = Date.now();
             updateGameTime();
             gameTimer = setInterval(updateGameTime, 1000);
+            
+            // Her 10 saniyede bir top hızını artır
+            clearInterval(speedIncreaseTimer);
+            speedIncreaseTimer = setInterval(increaseBallSpeed, 10000);
+            
             requestAnimationFrame(gameLoop);
+        }
+        
+        function increaseBallSpeed() {
+            if (Math.abs(ball.speedX) < ball.maxSpeed) {
+                const directionX = ball.speedX > 0 ? 1 : -1;
+                const directionY = ball.speedY > 0 ? 1 : -1;
+                
+                ball.speedX = (Math.abs(ball.speedX) + 0.5) * directionX;
+                ball.speedY = (Math.abs(ball.speedY) + 0.5) * directionY;
+                
+                updateSpeedDisplay();
+            }
         }
         
         function resetGame() {
             ball.x = canvas.width / 2;
             ball.y = canvas.height / 2;
-            ball.speedX = 5 * (Math.random() > 0.5 ? 1 : -1);
-            ball.speedY = 5 * (Math.random() > 0.5 ? 1 : -1);
+            
+            // Top hızını başlangıç hızına sıfırla
+            baseSpeed = 3;
+            const randomDirection = Math.random() > 0.5 ? 1 : -1;
+            ball.speedX = baseSpeed * randomDirection;
+            ball.speedY = baseSpeed * (Math.random() > 0.5 ? 1 : -1);
+            
             ball.trail = [];
             
             leftPaddle.y = canvas.height / 2 - paddleHeight / 2;
@@ -342,26 +367,31 @@
             rightPaddle.energy = 100;
             
             updateEnergyBars();
+            updateSpeedDisplay();
         }
         
         function togglePause() {
             isPaused = !isPaused;
             if (isPaused) {
                 pauseScreen.style.display = 'flex';
+                clearInterval(speedIncreaseTimer);
             } else {
                 pauseScreen.style.display = 'none';
+                speedIncreaseTimer = setInterval(increaseBallSpeed, 10000);
             }
         }
         
         function resumeGame() {
             isPaused = false;
             pauseScreen.style.display = 'none';
+            speedIncreaseTimer = setInterval(increaseBallSpeed, 10000);
         }
         
         function endGame(winner) {
             gameRunning = false;
             gameOver = true;
             clearInterval(gameTimer);
+            clearInterval(speedIncreaseTimer);
             gameOverScreen.style.display = 'flex';
             winnerText.textContent = winner === 1 ? 'PLAYER 1 VICTORY' : 'PLAYER 2 VICTORY';
         }
@@ -371,12 +401,8 @@
             rightPaddle.score = 0;
             player1Score.textContent = '0';
             player2Score.textContent = '0';
-            gameOver = false;
             gameOverScreen.style.display = 'none';
-            resetGame();
-            gameRunning = true;
-            gameStartTime = Date.now();
-            gameTimer = setInterval(updateGameTime, 1000);
+            startGame();
         }
         
         // Game logic
@@ -455,6 +481,8 @@
                 if (Math.abs(ball.speedX) > ball.maxSpeed) {
                     ball.speedX = ball.speedX > 0 ? ball.maxSpeed : -ball.maxSpeed;
                 }
+                
+                updateSpeedDisplay();
             }
             
             if (ball.x + ball.size / 2 > rightPaddle.x &&
@@ -472,6 +500,8 @@
                 if (Math.abs(ball.speedX) > ball.maxSpeed) {
                     ball.speedX = ball.speedX > 0 ? ball.maxSpeed : -ball.maxSpeed;
                 }
+                
+                updateSpeedDisplay();
             }
             
             // Ball out of bounds
@@ -497,24 +527,11 @@
             
             // Update energy bars
             updateEnergyBars();
-            
-            // Update ball speed display
-            const speedFactor = (Math.abs(ball.speedX) / 5).toFixed(1);
+        }
+        
+        function updateSpeedDisplay() {
+            const speedFactor = (Math.abs(ball.speedX) / baseSpeed).toFixed(1);
             ballSpeedDisplay.textContent = `${speedFactor}x`;
-            
-            // Update explosions
-            explosions = explosions.filter(explosion => {
-                explosion.time++;
-                return explosion.time < 30;
-            });
-            
-            // Update energy particles
-            energyParticles = energyParticles.filter(particle => {
-                particle.x += particle.vx;
-                particle.y += particle.vy;
-                particle.life--;
-                return particle.life > 0;
-            });
         }
         
         function updateEnergyBars() {
